@@ -1,5 +1,5 @@
-import unittest
 import numpy as np
+import unittest
 from spatial_coding_functions import vector_sum
 
 

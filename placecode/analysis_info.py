@@ -5,6 +5,8 @@ import os
 import warnings
 from uuid import uuid4
 from typing import Dict
+# TODO when needed, create interface and implement JSON and other sources
+from abc import ABC, abstractmethod
 
 
 class ParameterNotFoundError(Exception):
@@ -111,6 +113,25 @@ class ExpInfo():
         else:
             self.fpath_lfp = None
 
+    def to_dict(self) -> Dict:
+        """
+        Returns the attributes as a dict.
+        """
+        dict_attrs = dict()
+        # required attributes
+        dict_attrs["fpath_info"] = self.fpath_info
+        dict_attrs["fpath_caim"] = self.fpath_caim
+        dict_attrs["fpath_loco"] = self.fpath_loco
+        dict_attrs["mouse_ID"] = self.mouse_ID
+        dict_attrs["condition"] = self.condition
+        dict_attrs["belt_length_mm"] = self.belt_length_mm
+        # optional attributes
+        dict_attrs["uuid"] = self.uuid
+        dict_attrs["exp_type"] = self.exp_type
+        dict_attrs["fpath_lfp"] = self.fpath_lfp
+
+        return dict_attrs
+
 
 class AnalysisParams():
     """
@@ -174,8 +195,8 @@ class AnalysisParams():
             raise ParameterNotFoundError(
                 f"required parameter peak_distance not found in json file {fpath_json}")
         if "n_events_threshold" in dict_json:
-            self.n_events_threshold = float(
-                dict_json["n_events_threshold"])  # TODO: float or int?
+            self.n_events_threshold = int(
+                dict_json["n_events_threshold"])
         else:
             raise ParameterNotFoundError(
                 f"required parameter n_events_threshold not found in json file {fpath_json}")
