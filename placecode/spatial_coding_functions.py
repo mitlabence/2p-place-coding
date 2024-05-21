@@ -13,10 +13,10 @@ def vector_sum(radii: ArrayLike, angles: ArrayLike) -> Tuple[float, float]:
 
     Parameters
     ----------
-    angles : np.array
-        An 1D array of angles (radian).
     radii : np.array
         An 1D array of vector lengths.
+    angles : np.array
+        An 1D array of angles (radian).
     Returns
     -------
     tuple(float, float)
@@ -71,7 +71,7 @@ def make_firing_rate_maps(data, num_rounds, num_units, num_bins):
 
 
 def firing_rate_map(unit_traces: np.array, lv_rounds: np.array, lv_distance: np.array, n_bins: int) -> np.array:
-    """Calculates the spatial firing rate map for an arbitrary trace.
+    """Calculates the spatial firing rate map for an arbitrary trace, defined as the average of the trace over a spatial segment (spatial bin). 
     Parameters
     ----------
     unit_traces : np.array(shape=(n_cells, n_frames))
@@ -96,7 +96,6 @@ def firing_rate_map(unit_traces: np.array, lv_rounds: np.array, lv_distance: np.
     # get all unique rounds included in the data
     rounds_to_include = np.unique(lv_rounds)
     n_rounds = len(rounds_to_include)
-
     firing_rate_maps = np.zeros(
         shape=(n_units, n_rounds, n_bins), dtype=np.float64)
     for i_round, round in enumerate(rounds_to_include):
@@ -107,7 +106,6 @@ def firing_rate_map(unit_traces: np.array, lv_rounds: np.array, lv_distance: np.
             hist, _ = np.histogram(
                 distance_current_round, bins=n_bins, weights=traces_current_round[i_unit])
             count_hist, _ = np.histogram(distance_current_round, bins=n_bins)
-
             avg_firing_rate_map = np.divide(
                 hist, count_hist, out=np.zeros_like(hist), where=(count_hist != 0), dtype=firing_rate_maps.dtype)
             avg_firing_rate_map[np.isnan(avg_firing_rate_map)] = 0
@@ -115,45 +113,67 @@ def firing_rate_map(unit_traces: np.array, lv_rounds: np.array, lv_distance: np.
     return firing_rate_maps
 
 
-def spiking_rate_map(binary_traces: np.array, lv_rounds: np.array, lv_distance: np.array, n_bins: int) -> np.array:
-    """Calculates the spatial firing rate map for an arbitrary trace.
+def get_running_frames(speed_trace: ArrayLike, sampling_rate: float = 15., min_duration: float = 1, merge_threshold: float = 0.5, min_peak_speed: float = 5.) -> ArrayLike:
+    """
+    Classify frames as locomotion or not, based on Danielson et al. 2016. Merge frames of locomotion when 
+    break between them is short enough; filter on minimum length and minimum peak speed.
     Parameters
     ----------
-    binary_traces : np.array(shape=(n_cells, n_frames))
-        A numpy array of 1D binary traces (1 if a firing occurs, 0 otherwise)
-    lv_rounds : np.array(shape=(n_frames,), dtype=np.int16)
-        1D numpy array that marks the number of finished rounds for each frame
-    lv_distance : np.array(shape=(n_frames,), dtype=np.float64)
-        1D numpy array of the distance per round quantity.
-    n_bins : int
-        the number of spatial bins to calculate
+    speed_trace : np.array(shape=(n_frames,))
+    The locomotion speed in units cm/s 
+    sampling_rate: float
+    The sampling rate (Hz) of the locomotion trace.
+    min_duration: float
+    Minimum duration (s) of a loco segment to be accepted.
+    merge_threshold: float
+    Merge two locomotion intervals separated by less than merge_threshold (s) stillness
+    min_peak_speed: float
+    Minimum peak speed (cm/s) required to classify as locomotion
     Returns
     -------
-    np.array(shape=(n_components, n_rounds, n_bins))
-        A 3D array that contains for each component, for each round, the firing rate corresponding to each spatial bin.
+    np.array(shape=(n_frames,))
+        A boolean array that is True at indices that fulfill the internal logic to classify as locomotion, False otherwise. 
     """
-    assert binary_traces.shape[1] == len(lv_rounds)
-    assert len(lv_rounds) == len(lv_distance)
+    min_duration_frames = round(min_duration*sampling_rate)
+    merge_threshold_frames = round(merge_threshold*sampling_rate)
+    speed_binary = speed_trace > 0.
+    # 1. merge loco intervals
+    # for each frame, check if end or beginning of a loco cluster.
+    # if end, set i_end_last_loco to current frame
+    # if beginning, check how many frames elapsed since last end of a loco cluster.
+    # If less than <0.5s equivalent, fill the gap with 1s
+    # check i_end_last_loco > 0 to avoid filling beginning of recording with 1 if first loco starts <0.5s
+    i_end_last_loco = -1
+    for i_frame in range(1, len(speed_binary)):
+        # detect if end of loco
+        # now at rest and last frame loco
+        if (not speed_binary[i_frame]) and speed_binary[i_frame-1]:
+            i_end_last_loco = i_frame - 1
+        # detect if beginning of loco
+        # loco now and at rest last frame
+        elif speed_binary[i_frame] and not speed_binary[i_frame-1]:
+            # check if gap short enough to merge
+            # for example, [1, 0, 0, 0, 1] -> gap is 3 frames = 4 - (0 + 1)
+            if i_end_last_loco > 0 and (i_frame - i_end_last_loco) < merge_threshold_frames:
+                speed_binary[i_end_last_loco+1:i_frame] = 1
+    # 2. filter by minimum duration and minimum peak speed
+    # loop over frames, detect beginning and end of loco, check if passes threshold
+    i_begin = -1
+    i_end = -1
+    for i_frame in range(1, len(speed_binary)):
+        if speed_binary[i_frame] and not speed_binary[i_frame-1]:
+            i_begin = i_frame
+        elif not speed_binary[i_frame] and speed_binary[i_frame-1]:
+            i_end = i_frame-1
+            # found end, do the filtering now
+            is_long = (i_end - i_begin - 1) >= min_duration_frames
+            is_fast = np.max(speed_trace[i_begin:i_end+1]) >= min_peak_speed
+            # check if any of the criteria not fulfilled
+            if (not is_long) or (not is_fast):
+                speed_binary[i_begin:i_end+1] = 0
+    return speed_binary
 
-    n_units = binary_traces.shape[0]
-    # get all unique rounds included in the data
-    rounds_to_include = np.unique(lv_rounds)
-    n_rounds = len(rounds_to_include)
 
-    firing_rate_maps = np.zeros(
-        shape=(n_units, n_rounds, n_bins), dtype=np.float64)
-    for i_round, round in enumerate(rounds_to_include):
-        # filter traces to current round
-        frames_current_round = lv_rounds == round
-        distance_current_round = lv_distance[frames_current_round]
-        traces_current_round = binary_traces[:, frames_current_round]
-        for i_unit in range(n_units):
-            idx_firing = np.nonzero(traces_current_round[i_unit])
-            firing_spots = distance_current_round[idx_firing]
-            firing_rate_hist, _ = np.histogram(
-                firing_spots, bins=n_bins, range=(0, 1500.))
-            firing_rate_maps[i_unit, i_round, :] = firing_rate_hist
-    return firing_rate_maps
 # taking the zscore flurorescence. finding the peaks in it and making a binary panda frame out of it.
 # meaning with 0 and 1. zero is events and 1 is events
 
@@ -166,16 +186,42 @@ def spiking_rate_map(binary_traces: np.array, lv_rounds: np.array, lv_distance: 
 #         return data_binarized
 
 
-def make_binary(data, peak_threshold=3, peak_distance=10):
-    # the data file will be the the firing rate map of every cell
-    data_binarized = np.zeros_like(data)  # making a copy of the original file
+def make_binary(firing_rate_map, peak_threshold=3, peak_distance=10):
+    """Returns a binary array with 1 where the firing rate map contains peaks
+
+    Parameters
+    ----------
+    firing_rate_map : np.array(shape=(n_units, n_rounds, n_bins)) or np.array(shape=(n_rounds, n_bins))
+        The firing rate map data.
+    peak_threshold : int, optional
+        The threshold value a bin value should pass to be classified as peak (same unit as firing_rate_map), by default 3
+    peak_distance : int, optional
+        The required minimum distance between two peaks, by default 10
+
+    Returns
+    -------
+    np.array(shape=firing_rate_map.shape) 
+        The binary data filled with 1 where a peak was detected, 0 otherwise 
+    """
+    data_binarized = np.zeros_like(
+        firing_rate_map)  # making a copy of the original file
     # iterating through cells
-    for unit in range(data.shape[0]):
-        for round in range(data.shape[1]):
-            data_per_round = data[unit][round]
+    if len(firing_rate_map.shape) == 3:  # (n_units, n_rounds, n_bins)
+        for unit in range(firing_rate_map.shape[0]):
+            for round in range(firing_rate_map.shape[1]):
+                data_per_round = firing_rate_map[unit][round]
+                peaks, _ = find_peaks(
+                    data_per_round, height=peak_threshold, distance=peak_distance)
+                data_binarized[unit][round][peaks] = 1
+    elif len(firing_rate_map.shape) == 2:  # single unit data: shape = (n_rounds, n_bins)
+        for round in range(firing_rate_map.shape[0]):
+            data_per_round = firing_rate_map[round]
             peaks, _ = find_peaks(
                 data_per_round, height=peak_threshold, distance=peak_distance)
-            data_binarized[unit][round][peaks] = 1
+            data_binarized[round][peaks] = 1
+    else:
+        raise ValueError(
+            f"Invalid input shape: make_binary() takes 2D or 3D numpy array as firing_rate_map argument, received array with shape {firing_rate_map.shape}")
     return data_binarized
 
 
