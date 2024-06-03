@@ -29,7 +29,7 @@ class ExpInfo():
 
     Optional:
     uuid: str, the hexadecimal form of the experiment identifier
-    exp_type: str, the experiment type
+    condition: str, the experiment time point/condition (bl, ...)
     fpath_lfp: str, the file path of the LFP file (abf file)
     """
 
@@ -104,10 +104,11 @@ class ExpInfo():
             self.uuid = uuid4().hex
             warnings.warn(
                 f"No uuid found for experiment. Assigning {self.uuid}")
-        if "exp_type" in dict_json:
-            self.exp_type = dict_json["exp_type"]
+
+        if "condition" in dict_json:
+            self.condition = dict_json["condition"]
         else:
-            self.exp_type = None
+            self.condition = None
         if "fpath_lfp" in dict_json:
             self.fpath_lfp = dict_json["fpath_lfp"]
         else:
@@ -127,7 +128,7 @@ class ExpInfo():
         dict_attrs["belt_length_mm"] = self.belt_length_mm
         # optional attributes
         dict_attrs["uuid"] = self.uuid
-        dict_attrs["exp_type"] = self.exp_type
+        dict_attrs["condition"] = self.condition
         dict_attrs["fpath_lfp"] = self.fpath_lfp
 
         return dict_attrs
