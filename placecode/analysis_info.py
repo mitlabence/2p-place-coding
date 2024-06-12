@@ -23,7 +23,7 @@ class ExpInfo():
     fpath_info: str, the file path of the experiment info json file
     fpath_caim: str, the file path of the CaImAn data (hdf5 file)
     fpath_loco: str, the file path of the locomotion data (hdf5 file)
-    mouse_ID: str, mouse ID
+    mouse_id: str, mouse ID
     condition: str, condition
     belt_length_mm: float, the length of the belt in mm
 
@@ -51,7 +51,7 @@ class ExpInfo():
             raised if the specified file is not a json file.
         ParameterNotFoundError
             raised if one of the following keys not found in the json file:
-                mouse_ID, condition, home_folder
+                mouse_id, condition, home_folder
 
         """
         if not isinstance(fpath_json, str):
@@ -67,11 +67,11 @@ class ExpInfo():
         self.fpath_info = fpath_json
         # try to read required parameters first
         # TODO: typecheck the parameters!
-        if "mouse_ID" in dict_json:
-            self.mouse_ID = dict_json["mouse_ID"]
+        if "mouse_id" in dict_json:
+            self.mouse_id = dict_json["mouse_id"]
         else:
             raise ParameterNotFoundError(
-                f"required parameter mouse_ID not found in json file {fpath_json}")
+                f"required parameter mouse_id not found in json file {fpath_json}")
 
         if "condition" in dict_json:
             self.condition = dict_json["condition"]
@@ -123,7 +123,7 @@ class ExpInfo():
         dict_attrs["fpath_info"] = self.fpath_info
         dict_attrs["fpath_caim"] = self.fpath_caim
         dict_attrs["fpath_loco"] = self.fpath_loco
-        dict_attrs["mouse_ID"] = self.mouse_ID
+        dict_attrs["mouse_id"] = self.mouse_id
         dict_attrs["condition"] = self.condition
         dict_attrs["belt_length_mm"] = self.belt_length_mm
         # optional attributes
@@ -170,7 +170,7 @@ class AnalysisParams():
             raised if the specified file is not a json file.
         ParameterNotFoundError
             raised if one of the following keys not found in the json file:
-                mouse_ID, condition, home_folder
+                mouse_id, condition, home_folder
         """
         if not isinstance(fpath_json, str):
             raise TypeError(
@@ -246,7 +246,7 @@ class AnalysisParams():
         """
         self.belt_length_mm = exp_info.belt_length_mm
         self.condition = exp_info.condition
-        self.mouse_ID = exp_info.mouse_ID
+        self.mouse_id = exp_info.mouse_id
         if self.n_bins is not None:
             self.bin_size = self.belt_length_mm / self.n_bins
             if self.belt_length_mm % self.n_bins != 0:
