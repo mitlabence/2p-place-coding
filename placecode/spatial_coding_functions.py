@@ -70,6 +70,26 @@ def make_firing_rate_maps(data, num_rounds, num_units, num_bins):
     return firing_rate_maps
 
 
+def signal_strength_map(unit_traces: np.array, lv_rounds: np.array, lv_distance: np.array, n_bins: int) -> np.array:
+    """(Same as firing_rate_map()) Calculates the spatial signal strength map for an arbitrary trace, defined as the average of the trace over a spatial segment (spatial bin). 
+    Parameters
+    ----------
+    unit_traces : np.array(shape=(n_cells, n_frames))
+        A numpy array of 1D arbitrary traces for each neuron. Example: temporal components (raw or z-score).
+    lv_rounds : np.array(shape=(n_frames,), dtype=np.int16)
+        1D numpy array that marks the number of finished rounds for each frame
+    lv_distance : np.array(shape=(n_frames,), dtype=np.float64)
+        1D numpy array of the distance per round quantity.
+    n_bins : int
+        the number of spatial bins to calculate
+    Returns
+    -------
+    np.array(shape=(n_components, n_rounds, n_bins))
+        A 3D array that contains for each component, for each round, the firing rate corresponding to each spatial bin.
+    """
+    return firing_rate_map(unit_traces, lv_rounds, lv_distance, n_bins)
+
+
 def firing_rate_map(unit_traces: np.array, lv_rounds: np.array, lv_distance: np.array, n_bins: int) -> np.array:
     """Calculates the spatial firing rate map for an arbitrary trace, defined as the average of the trace over a spatial segment (spatial bin). 
     Parameters
