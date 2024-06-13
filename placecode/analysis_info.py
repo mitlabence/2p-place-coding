@@ -8,6 +8,8 @@ from typing import Dict
 # TODO when needed, create interface and implement JSON and other sources
 from abc import ABC, abstractmethod
 
+DEFAULT_N_ROUNDS_INCLUDED_THRESHOLD = 5
+
 
 class ParameterNotFoundError(Exception):
     pass
@@ -143,6 +145,7 @@ class AnalysisParams():
     * peak_distance: number, required minimum distance (in samples unit) between peaks. Used as scipy.signal.find_peaks distance parameter
     * n_events_threshold: int, threshold on how many events a cell should have to be included in the analysis. It is an exclusive threshold, i.e. the true event count must exceed the threshold.
     * n_shuffle: int, the number of shuffling of spiking events to take place.
+    * n_rounds_included_threshold: after throwing away rounds where the belt length does not make sense, at least this many rounds need to be present to analyze. 
     * At least one of
         * n_bins: int, the desired number of spatial bins. Calculated from ExpInfo.belt_length_mm and bin_size 
             if bin_size is given. If both n_bins and bin_size given, uses n_bins.
@@ -216,6 +219,11 @@ class AnalysisParams():
         else:
             raise ParameterNotFoundError(
                 f"required parameter n_shuffle not found in json file {fpath_json}")
+        if "n_rounds_included_threshold" in dict_json:
+            self.n_rounds_included_threshold = dict_json["n_rounds_included_threshold"]
+        else:
+            # set a default threshold
+            self.n_rounds_included_threshold = DEFAULT_N_ROUNDS_INCLUDED_THRESHOLD
         # Initialize generated parameters
         self.rounds_included = None
         self.n_units = None
@@ -234,6 +242,7 @@ class AnalysisParams():
         dict_attrs["rounds_included"] = self.rounds_included
         dict_attrs["n_units"] = self.n_units
         dict_attrs["peak_threshold"] = self.peak_threshold
+        dict_attrs["n_rounds_included_threshold"] = self.n_rounds_included_threshold
         return dict_attrs
 
     def read_exp_info(self, exp_info: ExpInfo) -> None:
